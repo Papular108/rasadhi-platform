@@ -11,7 +11,7 @@ Alpha — under active development. Not yet ready for public use.
 This is a monorepo containing:
 
 - **backend/** — FastAPI REST API ([README](backend/README.md))
-- **frontend/** — React + TypeScript SPA ([README](frontend/README.md)) _(coming soon)_
+- **frontend/** — React + TypeScript SPA ([README](frontend/README.md))
 - **docs/** — Architecture and deployment documentation
 
 ## Related projects
