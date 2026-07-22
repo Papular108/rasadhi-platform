@@ -7,6 +7,8 @@ Actual endpoint implementations live in app/api/routes/.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes import molecule
+
 app = FastAPI(
     title="Rasadhi Platform API",
     description="Cheminformatics platform for QSAR preprocessing, analysis, and modeling",
@@ -39,3 +41,7 @@ async def root():
 async def health():
     """Health check endpoint for monitoring."""
     return {"status": "healthy"}
+
+
+# Feature routers
+app.include_router(molecule.router)
