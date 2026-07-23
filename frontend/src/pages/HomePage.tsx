@@ -22,7 +22,7 @@ function useBackendHealth() {
   return useQuery({
     queryKey: ["health"],
     queryFn: async () => {
-      const response = await apiClient.get<HealthResponse>("/health")
+      const response = await apiClient.get<HealthResponse>("/api/health")
       return response.data
     },
   })
@@ -32,7 +32,7 @@ function useBackendInfo() {
   return useQuery({
     queryKey: ["root"],
     queryFn: async () => {
-      const response = await apiClient.get<RootResponse>("/")
+      const response = await apiClient.get<RootResponse>("/api")
       return response.data
     },
   })

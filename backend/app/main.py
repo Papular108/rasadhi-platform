@@ -27,7 +27,7 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.get("/api")
 async def root():
     """API root — returns basic service information."""
     return {
@@ -37,7 +37,7 @@ async def root():
     }
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health():
     """Health check endpoint for monitoring."""
     return {"status": "healthy"}

@@ -5,10 +5,10 @@
  * one code path, and the number of items in the response decides how the UI
  * renders. useMutation (not useQuery) because analysis fires on a user action.
  *
- * Path: "/api/molecule/analyze-batch". apiClient's baseURL is "/api" and the
- * Vite dev proxy strips only the FIRST "/api", so the browser path
- * "/api/api/molecule/analyze-batch" reaches the backend as
- * "/api/molecule/analyze-batch". Verified in Session 1.4.
+ * Path: the real backend path "/api/molecule/analyze-batch". apiClient's
+ * baseURL is "" in dev, so this stays relative and the Vite proxy forwards it
+ * to the backend unchanged; in production the baseURL is the backend origin
+ * and the same path becomes absolute.
  */
 
 import { useMutation } from "@tanstack/react-query"
