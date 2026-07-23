@@ -31,7 +31,10 @@ from app.models.common import AlertMatch, RuleResult
 from app.models.molecule import (
     DrugLikenessResults,
     MedChemAlerts,
+    MoleculeAnalysisRequest,
     MoleculeAnalysisResponse,
+    MoleculeBatchItem,
+    MoleculeBatchResponse,
     PhysicoChemicalProperties,
     SolubilityResult,
 )
@@ -118,4 +121,54 @@ def analyze_molecule(smiles: str, name: str | None = None) -> MoleculeAnalysisRe
         qed=qed,
         sa_score=sa_value,
         sa_score_note=sa_error if sa_value is None else None,
+    )
+
+
+def analyze_molecules(
+    requests: list[MoleculeAnalysisRequest],
+) -> MoleculeBatchResponse:
+    """Analyze several molecules, isolating per-item failures.
+
+    Runs analyze_molecule for each request in order. A malformed or otherwise
+    problematic molecule is recorded as a failed item and does not abort the
+    batch — every other molecule is still analyzed. The returned response is
+    always valid; there is no exception for the caller to handle.
+
+    Both InvalidSmilesError and unexpected exceptions are caught per item, so
+    one pathological molecule cannot take down the whole request.
+    """
+    items: list[MoleculeBatchItem] = []
+
+    for index, request in enumerate(requests):
+        try:
+            result = analyze_molecule(request.smiles, request.name)
+            items.append(
+                MoleculeBatchItem(
+                    index=index,
+                    input_smiles=request.smiles,
+                    name=request.name,
+                    success=True,
+                    result=result,
+                    error=None,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 — isolate every per-item failure
+            items.append(
+                MoleculeBatchItem(
+                    index=index,
+                    input_smiles=request.smiles,
+                    name=request.name,
+                    success=False,
+                    result=None,
+                    error=str(exc),
+                )
+            )
+
+    succeeded = sum(1 for item in items if item.success)
+
+    return MoleculeBatchResponse(
+        total=len(items),
+        succeeded=succeeded,
+        failed=len(items) - succeeded,
+        items=items,
     )

@@ -166,3 +166,80 @@ class MoleculeAnalysisResponse(BaseModel):
         description="Explanation for a missing sa_score (e.g. sascorer "
         "unavailable); None when sa_score is present.",
     )
+
+
+class MoleculeBatchRequest(BaseModel):
+    """Input for a batch analysis request (several molecules at once)."""
+
+    molecules: list[MoleculeAnalysisRequest] = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="The molecules to analyze. Capped at 50 to keep response "
+        "times reasonable; larger sets belong in the dataset workflow, which "
+        "handles files, filtering, and export.",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "molecules": [
+                    {"smiles": "CC(=O)Oc1ccccc1C(=O)O", "name": "Aspirin"},
+                    {"smiles": "Cn1cnc2c1c(=O)n(C)c(=O)n2C"},
+                ]
+            }
+        }
+    }
+
+
+class MoleculeBatchItem(BaseModel):
+    """One molecule's outcome within a batch.
+
+    Carries either a full analysis (when success is true) or an error string
+    (when success is false), so a single malformed molecule does not fail the
+    whole batch.
+    """
+
+    index: int = Field(
+        ...,
+        description="Zero-based position of this molecule in the submitted "
+        "list, so callers can match results to inputs regardless of ordering.",
+    )
+    input_smiles: str = Field(
+        ..., description="The submitted SMILES string, echoed back."
+    )
+    name: str | None = Field(
+        None,
+        description="Display label from the request, if one was provided.",
+    )
+    success: bool = Field(
+        ...,
+        description="True if this molecule was analyzed; false if it failed.",
+    )
+    result: MoleculeAnalysisResponse | None = Field(
+        None,
+        description="The full analysis; populated only when success is true.",
+    )
+    error: str | None = Field(
+        None,
+        description="Why this molecule failed; populated only when success is "
+        "false.",
+    )
+
+
+class MoleculeBatchResponse(BaseModel):
+    """Result of a batch analysis request.
+
+    The summary counts let a caller show, for example, '18 of 20 analyzed'
+    without walking the items list.
+    """
+
+    total: int = Field(..., description="Number of molecules submitted.")
+    succeeded: int = Field(
+        ..., description="Number analyzed successfully."
+    )
+    failed: int = Field(..., description="Number that failed to analyze.")
+    items: list[MoleculeBatchItem] = Field(
+        ...,
+        description="Per-molecule outcomes, in the order submitted.",
+    )

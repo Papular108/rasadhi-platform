@@ -10,7 +10,12 @@ from fastapi import APIRouter, HTTPException
 from rasadhi_core.exceptions import InvalidSmilesError
 
 from app.models.common import ErrorResponse
-from app.models.molecule import MoleculeAnalysisRequest, MoleculeAnalysisResponse
+from app.models.molecule import (
+    MoleculeAnalysisRequest,
+    MoleculeAnalysisResponse,
+    MoleculeBatchRequest,
+    MoleculeBatchResponse,
+)
 from app.services import molecule_service
 
 router = APIRouter(prefix="/api/molecule", tags=["molecule"])
@@ -35,3 +40,20 @@ async def analyze(request: MoleculeAnalysisRequest) -> MoleculeAnalysisResponse:
         return molecule_service.analyze_molecule(request.smiles, request.name)
     except InvalidSmilesError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/analyze-batch", response_model=MoleculeBatchResponse)
+async def analyze_batch(request: MoleculeBatchRequest) -> MoleculeBatchResponse:
+    """Analyze up to 50 molecules in a single request.
+
+    Each submitted molecule gets the same analysis as POST /analyze. Partial
+    failure is expected and handled: if one SMILES cannot be parsed, it comes
+    back as an item with ``success: false`` and an ``error`` message, while
+    every other molecule still returns its full analysis. The request itself
+    returns HTTP 200 as long as it was well-formed — individual failures do
+    not fail the batch.
+
+    The response includes ``total``/``succeeded``/``failed`` counts so callers
+    can summarize without walking the items list.
+    """
+    return molecule_service.analyze_molecules(request.molecules)
