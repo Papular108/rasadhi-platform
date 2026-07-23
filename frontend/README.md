@@ -75,3 +75,15 @@ frontend/
 │   └── types/                Shared TypeScript types
 └── public/                   Static assets
 ```
+
+## Notes
+
+- `public/RDKit_minimal.wasm` is a build artifact copied from
+  `node_modules/@rdkit/rdkit/dist/RDKit_minimal.wasm`. Vite does not pull it
+  from node_modules automatically, so it is served from `public/`. **Re-copy
+  it whenever `@rdkit/rdkit` is upgraded** so the binary matches the JS
+  loader:
+
+  ```bash
+  cp node_modules/@rdkit/rdkit/dist/RDKit_minimal.wasm public/
+  ```
