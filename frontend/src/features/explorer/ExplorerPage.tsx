@@ -1,26 +1,24 @@
 /**
  * Molecule Explorer feature page.
  *
- * Composes the full single-molecule report — SMILES input, physicochemical
- * properties, water solubility, druglikeness rules, structural alerts, and
- * druglikeness scores — and handles the idle, loading, error, and success
- * UI states. Cards are ordered from raw measurement to interpretation.
+ * Accepts one or several molecules (via the batch endpoint) and branches on the
+ * result: a single molecule renders the full two-column report; several render
+ * a comparison table with expandable per-molecule detail. Handles the idle,
+ * loading, network-error, and success states.
  */
 
 import { SmilesInput } from "@/features/explorer/components/SmilesInput"
-import { MoleculeStructure } from "@/features/explorer/components/MoleculeStructure"
-import { PropertyTable } from "@/features/explorer/components/PropertyTable"
-import { SolubilityCard } from "@/features/explorer/components/SolubilityCard"
-import { DruglikenessCard } from "@/features/explorer/components/DruglikenessCard"
-import { AlertsCard } from "@/features/explorer/components/AlertsCard"
-import { ScoresCard } from "@/features/explorer/components/ScoresCard"
+import { MoleculeReport } from "@/features/explorer/components/MoleculeReport"
+import { BatchResultsTable } from "@/features/explorer/components/BatchResultsTable"
 import { useMoleculeAnalysis } from "@/features/explorer/hooks/useMoleculeAnalysis"
+import type { ParsedEntry } from "@/features/explorer/lib/parseSmilesInput"
+import type { MoleculeBatchResponse } from "@/features/explorer/types"
 
 export default function ExplorerPage() {
   const analysis = useMoleculeAnalysis()
 
-  const handleAnalyze = (smiles: string, name?: string) => {
-    analysis.mutate({ smiles, name })
+  const handleAnalyze = (entries: ParsedEntry[]) => {
+    analysis.mutate(entries)
   }
 
   return (
@@ -37,66 +35,39 @@ export default function ExplorerPage() {
         <p className="text-sm text-muted-foreground">Analyzing…</p>
       ) : null}
 
-      {analysis.isError ? <ErrorMessage error={analysis.error} /> : null}
+      {analysis.isError ? <NetworkErrorMessage /> : null}
 
-      {analysis.isSuccess ? (
-        <div className="space-y-4">
-          {analysis.data.name ? (
-            <h2 className="text-xl font-semibold">{analysis.data.name}</h2>
-          ) : null}
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            {/* Left rail: visuals. The radar joins the structure here later. */}
-            <aside className="space-y-3">
-              <MoleculeStructure smiles={analysis.data.canonical_smiles} />
-              <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Canonical SMILES
-                </p>
-                <p className="break-all font-mono text-[11px] text-muted-foreground">
-                  {analysis.data.canonical_smiles}
-                </p>
-              </div>
-            </aside>
-
-            {/* Right column: the bordered container; ReportSections band it. */}
-            <div className="overflow-hidden rounded-lg border border-border">
-              <PropertyTable properties={analysis.data.properties} />
-              <SolubilityCard solubility={analysis.data.solubility} />
-              <DruglikenessCard druglikeness={analysis.data.druglikeness} />
-              <AlertsCard alerts={analysis.data.alerts} />
-              <ScoresCard
-                qed={analysis.data.qed}
-                saScore={analysis.data.sa_score}
-                saScoreNote={analysis.data.sa_score_note}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {analysis.isSuccess ? <SuccessView response={analysis.data} /> : null}
     </div>
   )
 }
 
-interface ErrorMessageProps {
-  error: ReturnType<typeof useMoleculeAnalysis>["error"]
+function SuccessView({ response }: { response: MoleculeBatchResponse }) {
+  // A single-molecule request keeps the full-page report experience.
+  if (response.items.length === 1) {
+    const item = response.items[0]
+    if (item.success && item.result) {
+      return <MoleculeReport result={item.result} name={item.name} />
+    }
+    return (
+      <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        {item.error ?? "That molecule could not be analyzed."} Check the SMILES
+        syntax, or try one of the examples.
+      </div>
+    )
+  }
+
+  return <BatchResultsTable response={response} />
 }
 
-function ErrorMessage({ error }: ErrorMessageProps) {
-  // A response with a status code means the backend was reached. A 400 here is
-  // an invalid SMILES, and the backend supplies a human-readable `detail`.
-  // No response object means the request never arrived — backend unreachable.
-  const isInvalidSmiles = error?.response?.status === 400
-  const detail = error?.response?.data?.detail
-
-  const message = isInvalidSmiles
-    ? (detail ??
-      "That SMILES string could not be parsed. Check the syntax, or try one of the example molecules.")
-    : "Could not reach the analysis server. The backend may not be running — start it and try again."
-
+function NetworkErrorMessage() {
+  // The batch endpoint returns 200 even when individual molecules fail (those
+  // come back as failed items), so reaching this branch means the request never
+  // completed — the backend is unreachable.
   return (
     <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-      {message}
+      Could not reach the analysis server. The backend may not be running —
+      start it and try again.
     </div>
   )
 }

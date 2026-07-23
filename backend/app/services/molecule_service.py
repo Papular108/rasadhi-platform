@@ -13,7 +13,7 @@ domain exceptions is the route layer's job.
 
 from rdkit import Chem
 
-from rasadhi_core.exceptions import InvalidSmilesError
+from rasadhi_core.exceptions import InvalidSmilesError, RasadhiError
 from rasadhi_core.featurization import compute_descriptors, compute_esol
 from rasadhi_core.preprocessing import (
     check_brenk,
@@ -134,8 +134,12 @@ def analyze_molecules(
     batch — every other molecule is still analyzed. The returned response is
     always valid; there is no exception for the caller to handle.
 
-    Both InvalidSmilesError and unexpected exceptions are caught per item, so
-    one pathological molecule cannot take down the whole request.
+    Only domain errors (RasadhiError and its subclasses, e.g.
+    InvalidSmilesError) are caught per item: a parse failure is an expected
+    outcome for real-world input and belongs in the item. A non-domain
+    exception is a programming error, not a bad molecule — it propagates to
+    FastAPI's 500 handler where it stays visible rather than being buried in a
+    per-item error field.
     """
     items: list[MoleculeBatchItem] = []
 
@@ -152,7 +156,7 @@ def analyze_molecules(
                     error=None,
                 )
             )
-        except Exception as exc:  # noqa: BLE001 — isolate every per-item failure
+        except RasadhiError as exc:  # domain failure → this item, not the batch
             items.append(
                 MoleculeBatchItem(
                     index=index,

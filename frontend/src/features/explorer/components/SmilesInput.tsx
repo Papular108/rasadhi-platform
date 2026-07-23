@@ -1,10 +1,16 @@
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
+import {
+  parseSmilesInput,
+  type ParsedEntry,
+} from "@/features/explorer/lib/parseSmilesInput"
+
+const MAX_MOLECULES = 50
 
 interface SmilesInputProps {
-  onAnalyze: (smiles: string, name?: string) => void
+  onAnalyze: (entries: ParsedEntry[]) => void
   isLoading: boolean
 }
 
@@ -20,20 +26,35 @@ const EXAMPLES: ExampleMolecule[] = [
   { name: "Paracetamol", smiles: "CC(=O)Nc1ccc(O)cc1" },
 ]
 
+const PLACEHOLDER = [
+  "CC(=O)Oc1ccccc1C(=O)O",
+  "Cn1cnc2c1c(=O)n(C)c(=O)n2C  Caffeine",
+].join("\n")
+
 export function SmilesInput({ onAnalyze, isLoading }: SmilesInputProps) {
   const [value, setValue] = useState("")
 
+  const entries = parseSmilesInput(value)
+  const count = entries.length
+  const overLimit = count > MAX_MOLECULES
+
   const submit = () => {
-    const smiles = value.trim()
-    if (!smiles || isLoading) return
-    onAnalyze(smiles)
+    if (isLoading || count === 0 || overLimit) return
+    onAnalyze(entries)
   }
 
-  const runExample = (example: ExampleMolecule) => {
+  // Examples replace the textarea and analyze immediately.
+  const loadAndAnalyze = (text: string) => {
     if (isLoading) return
-    setValue(example.smiles)
-    onAnalyze(example.smiles, example.name)
+    setValue(text)
+    onAnalyze(parseSmilesInput(text))
   }
+
+  const runExample = (example: ExampleMolecule) =>
+    loadAndAnalyze(`${example.smiles} ${example.name}`)
+
+  const runAllFour = () =>
+    loadAndAnalyze(EXAMPLES.map((e) => `${e.smiles} ${e.name}`).join("\n"))
 
   return (
     <div className="space-y-4">
@@ -42,24 +63,49 @@ export function SmilesInput({ onAnalyze, isLoading }: SmilesInputProps) {
           Molecule Explorer
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Enter a molecule and get its physicochemical properties and
-          druglikeness at a glance. New to this? Pick one of the examples below
-          to see how it works.
+          Analyze one molecule or several at once for their physicochemical
+          properties and druglikeness. New to this? Pick an example below to see
+          how it works.
         </p>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
+      <div className="space-y-2">
+        <textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit()
-          }}
-          placeholder="Paste a SMILES string, e.g. CC(=O)Oc1ccccc1C(=O)O"
-          aria-label="SMILES string"
-          className="font-mono"
+          rows={5}
+          placeholder={PLACEHOLDER}
+          aria-label="SMILES strings, one per line"
+          className={cn(
+            "flex w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          )}
         />
-        <Button onClick={submit} disabled={isLoading || !value.trim()}>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            One molecule per line, optionally followed by a space or tab and a
+            name. Up to {MAX_MOLECULES} at a time.
+          </p>
+          {count > 0 ? (
+            <span
+              className={cn(
+                "text-xs tabular-nums",
+                overLimit ? "text-destructive" : "text-muted-foreground",
+              )}
+            >
+              {count} molecule{count === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
+
+        {overLimit ? (
+          <p className="text-xs text-destructive">
+            That is more than {MAX_MOLECULES} molecules. Remove some lines — for
+            larger sets, the dataset workflow (coming later) will handle files.
+          </p>
+        ) : null}
+
+        <Button onClick={submit} disabled={isLoading || count === 0 || overLimit}>
           {isLoading ? "Analyzing…" : "Analyze"}
         </Button>
       </div>
@@ -77,6 +123,14 @@ export function SmilesInput({ onAnalyze, isLoading }: SmilesInputProps) {
             {example.name}
           </Button>
         ))}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={runAllFour}
+          disabled={isLoading}
+        >
+          All four
+        </Button>
       </div>
     </div>
   )

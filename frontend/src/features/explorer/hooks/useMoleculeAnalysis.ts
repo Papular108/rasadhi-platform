@@ -1,33 +1,34 @@
 /**
- * TanStack Query mutation wrapping POST /api/molecule/analyze.
+ * TanStack Query mutation wrapping POST /api/molecule/analyze-batch.
  *
- * useMutation (not useQuery) because analysis fires on a user action, not on
- * mount. The request path is "/api/molecule/analyze": apiClient's baseURL is
- * "/api", and the Vite dev proxy strips the FIRST "/api" before forwarding, so
- * the browser path "/api/api/molecule/analyze" reaches the backend as
- * "/api/molecule/analyze". Verified empirically against the running server.
+ * The Explorer always calls the batch endpoint, even for a single molecule —
+ * one code path, and the number of items in the response decides how the UI
+ * renders. useMutation (not useQuery) because analysis fires on a user action.
+ *
+ * Path: "/api/molecule/analyze-batch". apiClient's baseURL is "/api" and the
+ * Vite dev proxy strips only the FIRST "/api", so the browser path
+ * "/api/api/molecule/analyze-batch" reaches the backend as
+ * "/api/molecule/analyze-batch". Verified in Session 1.4.
  */
 
 import { useMutation } from "@tanstack/react-query"
 import type { AxiosError } from "axios"
 
 import { apiClient } from "@/lib/api/client"
+import type { ParsedEntry } from "@/features/explorer/lib/parseSmilesInput"
 
-import type {
-  MoleculeAnalysisRequest,
-  MoleculeAnalysisResponse,
-} from "@/features/explorer/types"
+import type { MoleculeBatchResponse } from "@/features/explorer/types"
 
 export function useMoleculeAnalysis() {
   return useMutation<
-    MoleculeAnalysisResponse,
+    MoleculeBatchResponse,
     AxiosError<{ detail: string }>,
-    MoleculeAnalysisRequest
+    ParsedEntry[]
   >({
-    mutationFn: async (request) => {
-      const { data } = await apiClient.post<MoleculeAnalysisResponse>(
-        "/api/molecule/analyze",
-        request,
+    mutationFn: async (entries) => {
+      const { data } = await apiClient.post<MoleculeBatchResponse>(
+        "/api/molecule/analyze-batch",
+        { molecules: entries },
       )
       return data
     },

@@ -71,3 +71,25 @@ export interface MoleculeAnalysisResponse {
   sa_score: number | null
   sa_score_note: string | null
 }
+
+// --- Batch (POST /api/molecule/analyze-batch) — mirrors the backend models ---
+
+export interface MoleculeBatchRequest {
+  molecules: MoleculeAnalysisRequest[]
+}
+
+export interface MoleculeBatchItem {
+  index: number
+  input_smiles: string
+  name: string | null
+  success: boolean
+  result: MoleculeAnalysisResponse | null
+  error: string | null
+}
+
+export interface MoleculeBatchResponse {
+  total: number
+  succeeded: number
+  failed: number
+  items: MoleculeBatchItem[]
+}
